@@ -1,46 +1,18 @@
-import socket
-import threading
+from flask import Flask, render_template
+from flask_socketio import SocketIO, send
 
-# Параметры сервера
-HOST = '0.0.0.0'
-PORT = 5000
+app = Flask(__name__)
+app.config["SECRET_KEY"] = "secret!"
+socketio = SocketIO(app, cors_allowed_origins="*")
 
-clients = []
+@app.route("/")
+def index():
+    return render_template("chat.html")
 
-def broadcast(message, sender_socket):
-    """Рассылка сообщения всем клиентам"""
-    for client in clients:
-        if client != sender_socket:
-            try:
-                client.send(message)
-            except:
-                client.close()
-                clients.remove(client)
-
-def handle_client(client_socket, addr):
-    print(f"[+] Подключился {addr}")
-    while True:
-        try:
-            message = client_socket.recv(1024)
-            if not message:
-                break
-            broadcast(message, client_socket)
-        except:
-            break
-    print(f"[-] Отключился {addr}")
-    clients.remove(client_socket)
-    client_socket.close()
-
-def main():
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind((HOST, PORT))
-    server.listen()
-    print(f"Сервер запущен на {HOST}:{PORT}")
-    while True:
-        client_socket, addr = server.accept()
-        clients.append(client_socket)
-        thread = threading.Thread(target=handle_client, args=(client_socket, addr))
-        thread.start()
+@socketio.on("message")
+def handle_message(msg):
+    print("Получено сообщение: " + msg)
+    send(msg, broadcast=True)
 
 if __name__ == "__main__":
-    main()
+    socketio.run(app, host="0.0.0.0", port=5000)
